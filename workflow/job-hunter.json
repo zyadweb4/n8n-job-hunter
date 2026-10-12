@@ -1,0 +1,1114 @@
+{
+  "name": "Zyad Job Hunter 🔎",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "bb5a98f5-7bfa-4197-b10e-ca87c8ec5969",
+      "name": "▶️ تجربة يدوية",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7-22/3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "17831ab5-8f7f-49f7-a405-68d0307a6182",
+      "name": "⏰ جمع الوظايف",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 21,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "f0ae9c42-ec3d-4184-809c-64edeffb14e1",
+      "name": "⏰ الملخص اليومي",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtMinute": 20
+            }
+          ]
+        }
+      },
+      "id": "fb472316-3d6a-4258-b37f-e0d16aa5efea",
+      "name": "⏰ التقديم بالإيميل",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  ⚙️  الإعدادات — ده المكان الوحيد اللي محتاج تعدّل فيه\n// ================================================================\nconst CONFIG = {\n  // ---- بياناتك ----\n  myName: 'Zyad Mohamed Abdelfattah',\n  myEmail: 'you@example.com',               // الإيميل اللي هيوصله الملخص اليومي\n  myPhone: '+20 1xx xxx xxxx',\n\n  // ---- Google Sheet ----\n  // افتح الشيت في المتصفح وانسخ اللينك كله وحطه هنا\n  sheetUrl: 'PASTE_YOUR_GOOGLE_SHEET_URL_HERE',\n  sheetName: 'Jobs',\n\n  // ---- مفاتيح الذكاء الاصطناعي (حط المفتاح اللي عندك بس) ----\n  keys: {\n    gemini: 'PASTE_GEMINI_KEY_HERE',   // مجاني من aistudio.google.com\n    openai: '',                        // اختياري (ChatGPT) من platform.openai.com\n    claude: '',                        // اختياري (Claude) من console.anthropic.com\n  },\n  // 🧠 الفريق: واحد بيقيّم كل الوظايف، وواحد بيكتب الجوابات للوظايف الكويسة بس\n  // المقيّم: Gemini Flash-Lite (مجاني وسريع، بيشتغل على كل وظيفة)\n  scorer: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },\n  // الكاتب: Gemini Flash مجاني. لو عايز Claude أو ChatGPT يكتبوا، حط مفتاحه فوق وغيّر السطر ده لـ:\n  //   { provider: 'claude', model: 'claude-sonnet-5-5' }   أو   { provider: 'openai', model: 'gpt-5-mini' }\n  // (لو مفتاح الكاتب فاضي، المقيّم هو اللي هيكتب)\n  writer: { provider: 'gemini', model: 'gemini-2.5-flash' },\n\n  // ---- قواعد الفلترة ----\n  minScoreToKeep: 45,      // أقل من كده مش هتتحط في الشيت\n  dailyMinJobs: 10,        // الملخص اليومي فيه 10 وظايف على الأقل (لو موجودين)\n  maxAiJobsPerRun: 25,     // أقصى عدد وظايف تتبعت للذكاء الاصطناعي في المرة\n\n  // ---- التقديم بالإيميل ----\n  // 0 = مفيش تقديم إلا لما تكتب «نعم» في عمود approve في الشيت\n  // مثلاً 80 = قدّم لوحدك على أي وظيفة سكورها 80 أو أكتر ومعاها إيميل تقديم\n  autoApplyMinScore: 0,\n  maxEmailsPerRun: 5,\n  // IDs ملفات السي في على Google Drive (افتح الملف ← Share ← Copy link، والـ ID هو اللي بين /d/ و /view)\n  cvDriveIds: {\n    qa: 'PASTE_DRIVE_FILE_ID',\n    data_entry: 'PASTE_DRIVE_FILE_ID',\n    wordpress: 'PASTE_DRIVE_FILE_ID',\n    ai_trainer: 'PASTE_DRIVE_FILE_ID',\n  },\n\n  // ---- البحث ----\n  linkedinKeywords: ['Arabic', 'data entry', 'QA tester', 'software tester', 'WordPress',\n                     'AI trainer', 'annotation', 'Arabic content', 'Power BI', 'Excel'],\n  linkedinLocations: ['Egypt', 'Saudi Arabia', 'United Arab Emirates'],\n  mostaqlKeywords: ['ووردبريس', 'إدخال بيانات', 'اختبار تطبيق', 'اكسل', 'تفريغ'],\n  baytPages: [\n    'https://www.bayt.com/en/egypt/jobs/remote-jobs/',\n    'https://www.bayt.com/en/saudi-arabia/jobs/remote-jobs/',\n    'https://www.bayt.com/en/uae/jobs/remote-jobs/',\n  ],\n  remoteApiSearches: ['arabic', 'data entry', 'qa', 'wordpress', 'annotation'],\n\n  // وظايف لازم يكون فيها كلمة من دول (في العنوان أو الوصف)\n  includeRegex: 'arab|عرب|data entry|إدخال|ادخال|بيانات|qa\\\\b|quality|tester|testing|اختبار|wordpress|ووردبريس|woocommerce|elementor|annotat|label|rater|evaluat|ai train|transcri|تفريغ|excel|اكسل|power ?bi|gis|seo|content review|moderat|localiz',\n  // وظايف تتشال على طول لو فيها كلمة من دول في العنوان\n  excludeRegex: 'senior|sr\\\\.|lead|manager|head of|director|principal|architect|staff engineer|german|french|spanish|turkish|russian|hebrew|italian|portuguese|japanese|korean|chinese|dutch|polish|nurse|doctor|driver|sales|telesales|cold call',\n\n  // ---- ملفك (اللي الذكاء الاصطناعي بيقارن بيه) — حقايق بس، من غير مبالغة ----\n  profile: `Zyad Mohamed Abdelfattah, based in Kafr El Dawar, Beheira, Egypt. Remote only.\nLanguages: Arabic native (Egyptian + Modern Standard Arabic). English intermediate (working proficiency in writing; not fluent in speaking).\nExperience:\n- QA Tester, Findo Group, Oct 2025 – present (remote, full-time): manual testing of web and mobile apps (Flutter, iOS/Android), regression testing, bug reports in Jira with steps/expected/actual/severity/screenshots, testing AI features and evaluating AI answers, reviewing Arabic localization and right-to-left layouts. Wrote 7 structured QA reports covering 5 products and 69 issues.\n- Built \"QA Pro\": a desktop testing tool (Electron + Playwright) with 20 automated test suites.\n- Data Entry Specialist, Findo Group, about 2 years before the QA role: accurate data entry in Arabic and English, cleaning duplicates, reports in Excel, Word, PowerPoint; SQL to look up and update records.\nSkills: Excel, Power BI, PowerPoint, Word, SQL, Python basics (no OOP yet), WordPress (WooCommerce stores, Elementor, security, backups, domains, hosting, SSL, SEO, publishing articles), HTML/CSS, Playwright, Jira, daily use of AI models (Claude, ChatGPT, Gemini).\nEducation: B.A. Geography – Surveying & GIS, Damanhur University, 2026, grade Very Good, ranked 3rd. GIS tools: ArcGIS Pro, QGIS, AutoCAD, Civil 3D.\nCertificates: Claude 101 (Anthropic, 2026), AutoCAD.\nAvailable: remote, full-time or part-time, can start immediately.\nCV versions available: qa, data_entry, wordpress, ai_trainer.`,\n};\n\n// ---- متلمسش اللي تحت ده ----\nlet mode = 'collect';\ntry { if ($('⏰ الملخص اليومي').isExecuted) mode = 'digest'; } catch (e) {}\ntry { if ($('⏰ التقديم بالإيميل').isExecuted) mode = 'apply'; } catch (e) {}\nreturn [{ json: { ...CONFIG, mode, runAt: new Date().toISOString() } }];\n"
+      },
+      "id": "8f8bd6db-c435-4c5b-a94b-e00cdaa53ae0",
+      "name": "⚙️ الإعدادات",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ba11e637-bd1a-45f1-bd9e-378b1a9f7f31",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "collect",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "collect"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2fe690e2-19e5-4acf-9665-ace134a391d3",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "digest",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "digest"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8ea9a31b-5c16-4046-9b29-7b5388fd78ac",
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "apply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "apply"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5f9450fa-8c48-4536-bcba-2d56e14ee616",
+      "name": "🔀 إيه المطلوب؟",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        500,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 بيجهّز لينكات كل المصادر (كل لينك = طلب واحد)\nconst c = $('⚙️ الإعدادات').first().json;\nconst out = [];\nconst add = (source, kind, url) => out.push({ json: { source, kind, url } });\nconst enc = encodeURIComponent;\n\n// LinkedIn (صفحات الزوار العامة، من غير تسجيل دخول) — ريموت، آخر 24 ساعة\nfor (const loc of c.linkedinLocations) {\n  for (const kw of c.linkedinKeywords) {\n    add('LinkedIn', 'linkedin',\n      `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${enc(kw)}&location=${enc(loc)}&f_WT=2&f_TPR=r86400&start=0`);\n  }\n}\n\n// مستقل: آخر المشاريع + بحث بكلمات\nadd('مستقل', 'mostaql_rss', 'https://mostaql.com/rss');\nfor (const kw of c.mostaqlKeywords) {\n  add('مستقل', 'mostaql_html', `https://mostaql.com/projects?keyword=${enc(kw)}&sort=latest`);\n}\n\n// Bayt (مصر والسعودية والإمارات — ريموت)\nfor (const u of c.baytPages) add('Bayt', 'bayt', u);\n\n// مواقع الريموت العالمية (APIs مجانية). Remotive بيطلب 4 مرات في اليوم بالكتير\nconst hour = $now.hour;\nfor (const q of c.remoteApiSearches) {\n  add('Himalayas', 'himalayas', `https://himalayas.app/jobs/api/search?q=${enc(q)}&worldwide=true&sort=recent`);\n}\nif (hour % 6 < 3) add('Remotive', 'remotive', 'https://remotive.com/api/remote-jobs?limit=150');\nadd('Jobicy', 'jobicy', 'https://jobicy.com/api/v2/remote-jobs?count=100&geo=emea');\n\nreturn out;\n"
+      },
+      "id": "6bedde5e-5fc2-4618-8607-ea31a0f71737",
+      "name": "🔗 المصادر",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\"User-Agent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36\",\"Accept-Language\":\"en-US,en;q=0.9,ar;q=0.8\"}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2500
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 25000
+        }
+      },
+      "id": "06e17f6d-e68f-4eaa-b477-48b54bc728cb",
+      "name": "🌐 هات الصفحات",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        -200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🧹 بيفك الصفحات اللي اتجابت، ويوحّد شكل الوظايف، ويشيل اللي مش مناسب\nconst c = $('⚙️ الإعدادات').first().json;\nconst reqs = $('🔗 المصادر').all();\nconst responses = $input.all();\n\nconst ent = (s) => String(s || '')\n  .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, '$1')\n  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))\n  .replace(/&#(\\d+);/g, (_, d) => String.fromCodePoint(+d))\n  .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '\"').replace(/&#39;|&apos;/g, \"'\")\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');\nconst strip = (s) => ent(String(s || '').replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, (_, x) => ent(x)).replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|li|div|h\\d)>/gi, '\\n')\n  .replace(/<[^>]+>/g, ' ')).replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n+/g, '\\n').trim();\nconst pick = (s, re) => { const m = String(s || '').match(re); return m ? m[1] : ''; };\nconst parseJSON = (t) => { try { return typeof t === 'string' ? JSON.parse(t) : t; } catch (e) { return null; } };\n\nconst jobs = [];\nconst errors = [];\nconst push = (j) => jobs.push({\n  source: j.source, title: strip(j.title).slice(0, 200), company: strip(j.company).slice(0, 120),\n  location: strip(j.location).slice(0, 120), url: String(j.url || '').trim(),\n  posted: j.posted ? String(j.posted) : '', description: strip(j.description).slice(0, 4000),\n});\n\nfunction parseLinkedIn(html, source) {\n  for (const block of String(html).split(/<li[\\s>]/).slice(1)) {\n    const id = pick(block, /urn:li:jobPosting:(\\d+)/);\n    if (!id) continue;\n    push({ source, url: `https://www.linkedin.com/jobs/view/${id}/`,\n      title: pick(block, /base-search-card__title[^>]*>([\\s\\S]*?)<\\/h3>/),\n      company: pick(block, /base-search-card__subtitle[^>]*>([\\s\\S]*?)<\\/h4>/),\n      location: pick(block, /job-search-card__location[^>]*>([\\s\\S]*?)<\\/span>/),\n      posted: pick(block, /<time[^>]*datetime=\"([^\"]+)\"/), description: '' });\n  }\n}\nfunction parseMostaqlRss(xml, source) {\n  for (const it of String(xml).split(/<item>/).slice(1)) {\n    push({ source, title: pick(it, /<title>([\\s\\S]*?)<\\/title>/), url: ent(pick(it, /<link>([\\s\\S]*?)<\\/link>/)),\n      description: pick(it, /<description>([\\s\\S]*?)<\\/description>/), posted: pick(it, /<pubDate>([\\s\\S]*?)<\\/pubDate>/),\n      company: 'مشروع فري لانس', location: 'عن بعد' });\n  }\n}\nfunction parseMostaqlHtml(html, source) {\n  for (const row of String(html).split(/class=\"project-row/).slice(1)) {\n    const m = row.match(/<a href=\"(https:\\/\\/mostaql\\.com\\/project\\/[^\"]+)\"[^>]*>([\\s\\S]*?)<\\/a>/);\n    if (!m) continue;\n    push({ source, url: m[1], title: m[2], posted: pick(row, /datetime=\"([^\"]+)\"/),\n      description: pick(row, /class=\"[^\"]*project__brief[^\"]*\"[^>]*>([\\s\\S]*?)<\\/(?:p|div)>/),\n      company: 'مشروع فري لانس', location: 'عن بعد' });\n  }\n}\nfunction parseBayt(html, source) {\n  for (const b of String(html).split(/data-js-job/).slice(1)) {\n    const m = b.match(/<h2[^>]*>\\s*<a[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)<\\/a>/);\n    if (!m) continue;\n    const wrap = pick(b, /job-company-location-wrapper[^>]*>([\\s\\S]*?)<\\/div>\\s*<\\/div>/) || b;\n    const links = [...wrap.matchAll(/<a[^>]*>([\\s\\S]*?)<\\/a>/g)].map((x) => strip(x[1])).filter(Boolean);\n    push({ source, url: m[1].startsWith('http') ? m[1] : 'https://www.bayt.com' + m[1], title: m[2],\n      company: links[0] || '', location: links.slice(1).join(', ') || 'Remote',\n      description: pick(b, /class=\"jb-descr[^\"]*\"[^>]*>([\\s\\S]*?)<\\/div>/) });\n  }\n}\nconst okLoc = (l) => !l || /worldwide|anywhere|emea|egypt|mena|middle east|africa|global|arab|saudi|uae|gulf/i.test(l);\nfunction parseRemotive(t, source) {\n  for (const j of (parseJSON(t) || {}).jobs || []) {\n    if (!okLoc(j.candidate_required_location)) continue;\n    push({ source, url: j.url, title: j.title, company: j.company_name, location: j.candidate_required_location,\n      posted: j.publication_date, description: j.description });\n  }\n}\nfunction parseHimalayas(t, source) {\n  for (const j of (parseJSON(t) || {}).jobs || []) {\n    const loc = (j.locationRestrictions || []).map((x) => (typeof x === 'string' ? x : x.name || x.alpha2 || '')).join(', ');\n    if (!okLoc(loc)) continue;\n    push({ source, url: (String(j.guid || '').startsWith('http') ? j.guid : j.applicationLink), title: j.title,\n      company: j.companyName, location: loc || 'Worldwide',\n      posted: j.pubDate ? new Date(+j.pubDate * (j.pubDate < 1e12 ? 1000 : 1)).toISOString() : '',\n      description: j.description || j.excerpt });\n  }\n}\nfunction parseJobicy(t, source) {\n  for (const j of (parseJSON(t) || {}).jobs || []) {\n    const loc = Array.isArray(j.jobGeo) ? j.jobGeo.join(', ') : j.jobGeo;\n    if (!okLoc(loc)) continue;\n    push({ source, url: j.url, title: j.jobTitle, company: j.companyName, location: loc,\n      posted: j.pubDate, description: j.jobDescription || j.jobExcerpt });\n  }\n}\nconst P = { linkedin: parseLinkedIn, mostaql_rss: parseMostaqlRss, mostaql_html: parseMostaqlHtml, bayt: parseBayt,\n  remotive: parseRemotive, himalayas: parseHimalayas, jobicy: parseJobicy };\n\nresponses.forEach((r, i) => {\n  const req = (reqs[i] || {}).json || {};\n  const body = r.json.data !== undefined ? r.json.data : r.json;\n  if (r.json.error || body === undefined) { errors.push(req.source + ': ' + JSON.stringify(r.json.error || 'empty').slice(0, 120)); return; }\n  try { P[req.kind](body, req.source); } catch (e) { errors.push(req.source + ': ' + e.message); }\n});\n\n// فلترة + شيل المكرر جوه نفس المرة\nconst inc = new RegExp(c.includeRegex, 'i');\nconst exc = new RegExp(c.excludeRegex, 'i');\nconst seen = new Set();\nconst out = [];\nfor (const j of jobs) {\n  if (!j.title || !/^https?:\\/\\//.test(j.url)) continue;\n  j.url = j.url.replace(/[?#].*$/, '');\n  const key = j.url.toLowerCase();\n  const key2 = (j.title + '|' + j.company).toLowerCase();\n  if (seen.has(key) || seen.has(key2)) continue;\n  seen.add(key); seen.add(key2);\n  if (exc.test(j.title)) continue;\n  const hay = j.title + ' ' + j.description.slice(0, 1500);\n  // لازم كلمة من includeRegex تكون في العنوان أو الوصف\n  // (LinkedIn مستثناة لأن وصفها بيتجاب بعدين، والبحث نفسه بالكلمة)\n  if (j.source !== 'LinkedIn' && !inc.test(hay)) continue;\n  const emails = (j.description.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}/g) || [])\n    .filter((e) => !/example|noreply|no-reply|sentry|wixpress/i.test(e));\n  const rel = (j.title.match(new RegExp(c.includeRegex, 'gi')) || []).length * 3\n    + (hay.match(new RegExp(c.includeRegex, 'gi')) || []).length\n    + (/arab|عرب|egypt|مصر/i.test(hay) ? 4 : 0);\n  out.push({ ...j, apply_email: emails[0] || '', rel, job_key: key });\n}\n\n// لو مفيش ولا وظيفة، الفرع بيقف هنا (والأخطاء بتبان في الـ Executions)\nif (errors.length) console.log('مصادر فشلت:', errors.slice(0, 15));\nreturn out.map((j) => ({ json: j }));\n"
+      },
+      "id": "50d28e5b-2aa8-4e1d-94bc-73d847102a1a",
+      "name": "🧹 فك ونضّف",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.job_key }}",
+        "options": {
+          "scope": "workflow"
+        }
+      },
+      "id": "8f52458c-78a0-4df2-8615-34b104a7b915",
+      "name": "🚫 شيل اللي اتشاف قبل كده",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✂️ بياخد أحسن الوظايف الجديدة (بعد شيل اللي اتشاف قبل كده) عشان ما نصرفش على الـ AI\n//    وبيجهّز لينك تفاصيل وظايف LinkedIn (عشان الوصف الكامل)\nconst c = $('⚙️ الإعدادات').first().json;\nconst items = $input.all().map((i) => i.json).filter((j) => j.title);\nitems.sort((a, b) => b.rel - a.rel);\nreturn items.slice(0, c.maxAiJobsPerRun).map((j) => {\n  const id = j.source === 'LinkedIn' ? (j.url.match(/\\/view\\/(\\d+)/) || [])[1] : '';\n  return { json: { ...j, detail_url: id ? `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${id}` : '' } };\n});\n"
+      },
+      "id": "a63f0fca-9dbc-4d60-9621-b09dcd1e7008",
+      "name": "✂️ أحسن الوظايف",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.detail_url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\"User-Agent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36\",\"Accept-Language\":\"en-US,en;q=0.9,ar;q=0.8\"}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "5cf4f890-d1f8-4ca7-aa26-cae71a89fe51",
+      "name": "📄 هات تفاصيل LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1960,
+        -200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🧩 بيحط الوصف الكامل لوظايف LinkedIn (لو اتجاب)\nconst reqs = $('✂️ أحسن الوظايف').all();\nconst strip = (s) => String(s || '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|li|div|h\\d)>/gi, '\\n').replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\").replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n+/g, '\\n').trim();\nreturn $input.all().map((res, i) => {\n  const j = { ...(reqs[i] || {}).json };\n  const html = typeof res.json.data === 'string' ? res.json.data : '';\n  if (j.detail_url && html) {\n    const m = html.match(/show-more-less-html__markup[^>]*>([\\s\\S]*?)<\\/div>/);\n    if (m) j.description = strip(m[1]).slice(0, 4000);\n    const crit = [...html.matchAll(/description__job-criteria-text[^>]*>([\\s\\S]*?)<\\/span>/g)].map((x) => strip(x[1])).join(' / ');\n    if (crit) j.description = (j.description + '\\nCriteria: ' + crit).trim();\n    const em = (j.description.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}/) || [])[0];\n    if (em && !j.apply_email) j.apply_email = em;\n  }\n  delete j.detail_url;\n  return { json: j };\n});\n"
+      },
+      "id": "a1904f26-d966-4d7a-99dd-98b392855866",
+      "name": "🧩 ضيف الوصف",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🤖 بيجهّز طلب تقييم لكل وظيفة\n// ---- مكتبة صغيرة: بتبني طلب للذكاء الاصطناعي (Gemini / ChatGPT / Claude) ----\nfunction aiRole(c, role) {\n  let { provider, model } = c[role];\n  if (!c.keys[provider]) { provider = c.scorer.provider; model = c.scorer.model; }\n  if (!c.keys[provider]) throw new Error('حط مفتاح ' + provider + ' في ⚙️ الإعدادات');\n  return { provider, model, key: c.keys[provider] };\n}\nfunction aiRequest(r, system, user, maxTokens) {\n  if (r.provider === 'gemini') {\n    const gen = { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: maxTokens };\n    if (/^gemini-2\\.5-flash/.test(r.model)) gen.thinkingConfig = { thinkingBudget: 0 };\n    return { ai_provider: r.provider,\n      ai_url: `https://generativelanguage.googleapis.com/v1beta/models/${r.model}:generateContent`,\n      ai_headers: { 'x-goog-api-key': r.key, 'content-type': 'application/json' },\n      ai_body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: gen } };\n  }\n  if (r.provider === 'openai') {\n    return { ai_provider: r.provider, ai_url: 'https://api.openai.com/v1/chat/completions',\n      ai_headers: { Authorization: 'Bearer ' + r.key, 'content-type': 'application/json' },\n      ai_body: { model: r.model, response_format: { type: 'json_object' }, max_completion_tokens: maxTokens * 3,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } };\n  }\n  if (r.provider === 'claude') {\n    return { ai_provider: r.provider, ai_url: 'https://api.anthropic.com/v1/messages',\n      ai_headers: { 'x-api-key': r.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },\n      ai_body: { model: r.model, max_tokens: maxTokens, system,\n        messages: [{ role: 'user', content: user + '\\n\\nReply with the JSON object only.' }] } };\n  }\n  throw new Error('provider لازم يكون gemini أو openai أو claude');\n}\nfunction aiText(provider, res) {\n  if (!res || res.error) return '';\n  if (provider === 'gemini') return (((res.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');\n  if (provider === 'openai') return (((res.choices || [])[0] || {}).message || {}).content || '';\n  if (provider === 'claude') return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  return '';\n}\nfunction aiJSON(text) {\n  const m = String(text || '').match(/\\{[\\s\\S]*\\}/);\n  if (!m) return null;\n  try { return JSON.parse(m[0]); } catch (e) { return null; }\n}\nconst c = $('⚙️ الإعدادات').first().json;\nconst r = aiRole(c, 'scorer');\nconst system = 'You screen job posts for ONE candidate and answer ONLY with a JSON object. Be strict and realistic, never optimistic.';\nreturn $input.all().map((it) => {\n  const j = it.json;\n  const user = `CANDIDATE PROFILE:\n${c.profile}\n\nJOB POST (source: ${j.source}):\nTitle: ${j.title}\nCompany: ${j.company}\nLocation: ${j.location}\nURL: ${j.url}\nDescription:\n${(j.description || '(no description, judge from title/company/location)').slice(0, 3500)}\n\nReturn this JSON:\n{\"score\": 0-100 (realistic chance this candidate gets an interview/acceptance),\n \"cv\": one of \"qa\" | \"data_entry\" | \"wordpress\" | \"ai_trainer\" (best CV version to send),\n \"why_ar\": \"سبب مختصر بالعامية المصرية ليه مناسبة أو لأ (25 كلمة بالكتير)\",\n \"missing_ar\": \"أهم حاجة ناقصاه للوظيفة دي بالعامية المصرية (15 كلمة بالكتير) أو فاضي\",\n \"red_flags_ar\": \"علامات نصب أو شروط مستحيلة بالعامية المصرية أو فاضي\",\n \"apply_email\": \"the email address the post asks applicants to send CVs to, or empty string\"}\n\nScoring rules:\n- Restricted to residents of countries other than Egypt (e.g. US only, UK only, Saudi residents only), on-site, or hybrid: score 15 or less.\n- Needs fluent/C1/native English or lots of English calls: score 30 or less.\n- Needs clearly more experience than he has (he has ~1 year QA, ~2 years data entry): score 40 or less.\n- Arabic-language AI work (AI training, rating, annotation, localization, Arabic review) at entry or junior level, open to Egypt: score high.\n- Freelance projects (source مستقل): score by whether he can deliver this exact project with his stated skills.\n- Scam signs (asks for any fee, contact only via Telegram/WhatsApp, unrealistic pay, vague company): score 10 or less and explain in red_flags_ar.`;\n  return { json: { ...j, ...aiRequest(r, system, user, 700) } };\n});\n"
+      },
+      "id": "f820a079-0a5c-4301-9fb9-12002f5b83e6",
+      "name": "🤖 جهّز التقييم",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ai_url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($json.ai_headers) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ai_body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 7000
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "95ef0360-7c81-474f-a528-f89e8472ab55",
+      "name": "🤖 قيّم بالـ AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📊 بيقرا رد التقييم ويسيب الوظايف الكويسة بس\n// ---- مكتبة صغيرة: بتبني طلب للذكاء الاصطناعي (Gemini / ChatGPT / Claude) ----\nfunction aiRole(c, role) {\n  let { provider, model } = c[role];\n  if (!c.keys[provider]) { provider = c.scorer.provider; model = c.scorer.model; }\n  if (!c.keys[provider]) throw new Error('حط مفتاح ' + provider + ' في ⚙️ الإعدادات');\n  return { provider, model, key: c.keys[provider] };\n}\nfunction aiRequest(r, system, user, maxTokens) {\n  if (r.provider === 'gemini') {\n    const gen = { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: maxTokens };\n    if (/^gemini-2\\.5-flash/.test(r.model)) gen.thinkingConfig = { thinkingBudget: 0 };\n    return { ai_provider: r.provider,\n      ai_url: `https://generativelanguage.googleapis.com/v1beta/models/${r.model}:generateContent`,\n      ai_headers: { 'x-goog-api-key': r.key, 'content-type': 'application/json' },\n      ai_body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: gen } };\n  }\n  if (r.provider === 'openai') {\n    return { ai_provider: r.provider, ai_url: 'https://api.openai.com/v1/chat/completions',\n      ai_headers: { Authorization: 'Bearer ' + r.key, 'content-type': 'application/json' },\n      ai_body: { model: r.model, response_format: { type: 'json_object' }, max_completion_tokens: maxTokens * 3,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } };\n  }\n  if (r.provider === 'claude') {\n    return { ai_provider: r.provider, ai_url: 'https://api.anthropic.com/v1/messages',\n      ai_headers: { 'x-api-key': r.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },\n      ai_body: { model: r.model, max_tokens: maxTokens, system,\n        messages: [{ role: 'user', content: user + '\\n\\nReply with the JSON object only.' }] } };\n  }\n  throw new Error('provider لازم يكون gemini أو openai أو claude');\n}\nfunction aiText(provider, res) {\n  if (!res || res.error) return '';\n  if (provider === 'gemini') return (((res.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');\n  if (provider === 'openai') return (((res.choices || [])[0] || {}).message || {}).content || '';\n  if (provider === 'claude') return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  return '';\n}\nfunction aiJSON(text) {\n  const m = String(text || '').match(/\\{[\\s\\S]*\\}/);\n  if (!m) return null;\n  try { return JSON.parse(m[0]); } catch (e) { return null; }\n}\nconst c = $('⚙️ الإعدادات').first().json;\nconst reqs = $('🤖 جهّز التقييم').all();\nconst out = [];\n$input.all().forEach((res, i) => {\n  const j = { ...(reqs[i] || {}).json };\n  const provider = j.ai_provider;\n  delete j.ai_url; delete j.ai_headers; delete j.ai_body; delete j.ai_provider;\n  const a = aiJSON(aiText(provider, res.json));\n  if (!a) {\n    // التقييم فشل (مثلاً الحد المجاني خلص): نسيبها بس من غير سكور عشان ما تضيعش\n    if (j.rel >= 6) out.push({ json: { ...j, score: '', cv: 'ai_trainer', why_ar: 'ما اتقيّمتش (الذكاء الاصطناعي ما ردّش)', missing_ar: '', red_flags_ar: '' } });\n    return;\n  }\n  const score = Math.max(0, Math.min(100, Math.round(Number(a.score) || 0)));\n  if (score < c.minScoreToKeep) return;\n  const cv = ['qa', 'data_entry', 'wordpress', 'ai_trainer'].includes(a.cv) ? a.cv : 'ai_trainer';\n  const email = /^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$/i.test(a.apply_email || '') ? a.apply_email : j.apply_email;\n  out.push({ json: { ...j, score, cv, why_ar: a.why_ar || '', missing_ar: a.missing_ar || '', red_flags_ar: a.red_flags_ar || '', apply_email: email || '' } });\n});\nreturn out;\n"
+      },
+      "id": "6ab7dcb8-e77b-4462-9c3b-cfe6c9a1ed6d",
+      "name": "📊 اقرا التقييم",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✍️ بيجهّز طلب كتابة الـ Cover Letter (أو عرض مستقل بالعربي)\n// ---- مكتبة صغيرة: بتبني طلب للذكاء الاصطناعي (Gemini / ChatGPT / Claude) ----\nfunction aiRole(c, role) {\n  let { provider, model } = c[role];\n  if (!c.keys[provider]) { provider = c.scorer.provider; model = c.scorer.model; }\n  if (!c.keys[provider]) throw new Error('حط مفتاح ' + provider + ' في ⚙️ الإعدادات');\n  return { provider, model, key: c.keys[provider] };\n}\nfunction aiRequest(r, system, user, maxTokens) {\n  if (r.provider === 'gemini') {\n    const gen = { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: maxTokens };\n    if (/^gemini-2\\.5-flash/.test(r.model)) gen.thinkingConfig = { thinkingBudget: 0 };\n    return { ai_provider: r.provider,\n      ai_url: `https://generativelanguage.googleapis.com/v1beta/models/${r.model}:generateContent`,\n      ai_headers: { 'x-goog-api-key': r.key, 'content-type': 'application/json' },\n      ai_body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: gen } };\n  }\n  if (r.provider === 'openai') {\n    return { ai_provider: r.provider, ai_url: 'https://api.openai.com/v1/chat/completions',\n      ai_headers: { Authorization: 'Bearer ' + r.key, 'content-type': 'application/json' },\n      ai_body: { model: r.model, response_format: { type: 'json_object' }, max_completion_tokens: maxTokens * 3,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } };\n  }\n  if (r.provider === 'claude') {\n    return { ai_provider: r.provider, ai_url: 'https://api.anthropic.com/v1/messages',\n      ai_headers: { 'x-api-key': r.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },\n      ai_body: { model: r.model, max_tokens: maxTokens, system,\n        messages: [{ role: 'user', content: user + '\\n\\nReply with the JSON object only.' }] } };\n  }\n  throw new Error('provider لازم يكون gemini أو openai أو claude');\n}\nfunction aiText(provider, res) {\n  if (!res || res.error) return '';\n  if (provider === 'gemini') return (((res.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');\n  if (provider === 'openai') return (((res.choices || [])[0] || {}).message || {}).content || '';\n  if (provider === 'claude') return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  return '';\n}\nfunction aiJSON(text) {\n  const m = String(text || '').match(/\\{[\\s\\S]*\\}/);\n  if (!m) return null;\n  try { return JSON.parse(m[0]); } catch (e) { return null; }\n}\nconst c = $('⚙️ الإعدادات').first().json;\nconst r = aiRole(c, 'writer');\nconst system = 'You write short, honest job application texts for one candidate. Use ONLY facts from his profile. Never invent tools, numbers, companies or years. Answer ONLY with a JSON object.';\nreturn $input.all().map((it) => {\n  const j = it.json;\n  const freelance = j.source === 'مستقل';\n  const user = `CANDIDATE PROFILE:\n${c.profile}\nContact: ${c.myEmail} | ${c.myPhone}\n\nJOB (${j.source}): ${j.title} — ${j.company} — ${j.location}\n${(j.description || '').slice(0, 3000)}\n\nBest CV version: ${j.cv}\n\nReturn this JSON:\n{\"email_subject\": \"short email subject in English, e.g. Application for <title> – ${c.myName}\",\n \"cover_letter\": ${freelance ? '\"\"' : '\"English cover letter, simple B1-level English the candidate can defend in an interview, 90-150 words, greeting + 2 short paragraphs linking HIS real experience to THIS job + availability + sign-off with his name, email and phone\"'},\n \"proposal_ar\": ${freelance ? '\"عرض بالعربي الفصيح البسيط لصاحب المشروع على مستقل، 70-120 كلمة: إنه فهم المطلوب، وخبرته الحقيقية المرتبطة، وخطوات التنفيذ باختصار، وسؤال واحد يوضّح بيه المطلوب. من غير سعر ومن غير مبالغة\"' : '\"\"'}}`;\n  return { json: { ...j, ...aiRequest(r, system, user, 900) } };\n});\n"
+      },
+      "id": "61d8b3ff-1731-4e04-a880-83d4180542fb",
+      "name": "✍️ جهّز الجواب",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ai_url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($json.ai_headers) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ai_body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 4000
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "id": "a45e4e4e-6fdf-44af-b5ef-e4901579a4f8",
+      "name": "✍️ اكتب بالـ AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1720,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📝 بيحوّل كل وظيفة لصف في الشيت\n// ---- مكتبة صغيرة: بتبني طلب للذكاء الاصطناعي (Gemini / ChatGPT / Claude) ----\nfunction aiRole(c, role) {\n  let { provider, model } = c[role];\n  if (!c.keys[provider]) { provider = c.scorer.provider; model = c.scorer.model; }\n  if (!c.keys[provider]) throw new Error('حط مفتاح ' + provider + ' في ⚙️ الإعدادات');\n  return { provider, model, key: c.keys[provider] };\n}\nfunction aiRequest(r, system, user, maxTokens) {\n  if (r.provider === 'gemini') {\n    const gen = { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: maxTokens };\n    if (/^gemini-2\\.5-flash/.test(r.model)) gen.thinkingConfig = { thinkingBudget: 0 };\n    return { ai_provider: r.provider,\n      ai_url: `https://generativelanguage.googleapis.com/v1beta/models/${r.model}:generateContent`,\n      ai_headers: { 'x-goog-api-key': r.key, 'content-type': 'application/json' },\n      ai_body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: gen } };\n  }\n  if (r.provider === 'openai') {\n    return { ai_provider: r.provider, ai_url: 'https://api.openai.com/v1/chat/completions',\n      ai_headers: { Authorization: 'Bearer ' + r.key, 'content-type': 'application/json' },\n      ai_body: { model: r.model, response_format: { type: 'json_object' }, max_completion_tokens: maxTokens * 3,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } };\n  }\n  if (r.provider === 'claude') {\n    return { ai_provider: r.provider, ai_url: 'https://api.anthropic.com/v1/messages',\n      ai_headers: { 'x-api-key': r.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },\n      ai_body: { model: r.model, max_tokens: maxTokens, system,\n        messages: [{ role: 'user', content: user + '\\n\\nReply with the JSON object only.' }] } };\n  }\n  throw new Error('provider لازم يكون gemini أو openai أو claude');\n}\nfunction aiText(provider, res) {\n  if (!res || res.error) return '';\n  if (provider === 'gemini') return (((res.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('');\n  if (provider === 'openai') return (((res.choices || [])[0] || {}).message || {}).content || '';\n  if (provider === 'claude') return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  return '';\n}\nfunction aiJSON(text) {\n  const m = String(text || '').match(/\\{[\\s\\S]*\\}/);\n  if (!m) return null;\n  try { return JSON.parse(m[0]); } catch (e) { return null; }\n}\nconst reqs = $('✍️ جهّز الجواب').all();\nreturn $input.all().map((res, i) => {\n  const j = (reqs[i] || {}).json || {};\n  const a = aiJSON(aiText(j.ai_provider, res.json)) || {};\n  return { json: {\n    found_at: $now.toFormat('yyyy-MM-dd HH:mm'),\n    source: j.source, title: j.title, company: j.company, location: j.location,\n    score: j.score, cv: j.cv, why_ar: j.why_ar, missing_ar: j.missing_ar, red_flags_ar: j.red_flags_ar,\n    url: j.url, apply_email: j.apply_email || '',\n    email_subject: a.email_subject || `Application for ${j.title}`,\n    cover_letter: a.cover_letter || '', proposal_ar: a.proposal_ar || '',\n    approve: '', status: 'جديد', applied_at: '',\n  } };\n});\n"
+      },
+      "id": "214bc87f-a5f1-47b5-8b38-530f4e44cca6",
+      "name": "📝 جهّز الصف",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetUrl }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetName }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "ecc5071d-444a-4685-b1ea-8ea7477dea8f",
+      "name": "📄 ضيف للشيت",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetUrl }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetName }}"
+        },
+        "options": {}
+      },
+      "id": "6957f688-38e6-4731-9eed-b8f0fd9b1662",
+      "name": "📄 اقرا الشيت (ملخص)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        760,
+        260
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📋 بيختار وظايف الملخص: الجديد في آخر 24 ساعة، ولو أقل من 10 بيكمّل من الأقدم اللي لسه «جديد»\nconst c = $('⚙️ الإعدادات').first().json;\nconst rows = $input.all().map((i) => i.json).filter((r) => r.title && r.url);\nconst since = $now.minus({ hours: 24 });\nconst num = (s) => (s === '' || s === undefined ? -1 : Number(s));\nconst parseAt = (v) => {\n  if (typeof v === 'number') return DateTime.fromMillis(Math.round((v - 25569) * 864e5), { zone: 'utc' }).setZone($now.zoneName, { keepLocalTime: true });\n  const s = String(v || '').trim();\n  for (const f of ['yyyy-MM-dd HH:mm', 'yyyy-MM-dd HH:mm:ss', 'd/M/yyyy HH:mm:ss', 'M/d/yyyy HH:mm:ss']) {\n    const d = DateTime.fromFormat(s, f, { zone: $now.zoneName }); if (d.isValid) return d;\n  }\n  return DateTime.fromISO(s, { zone: $now.zoneName });\n};\nconst ts = (r) => { const d = parseAt(r.found_at); return d.isValid ? d : null; };\nconst fresh = rows.filter((r) => { const d = ts(r); return d && d >= since; });\nfresh.sort((a, b) => num(b.score) - num(a.score));\nlet picked = [...fresh];\nif (picked.length < c.dailyMinJobs) {\n  const older = rows.filter((r) => !fresh.includes(r) && String(r.status || '').trim() === 'جديد')\n    .sort((a, b) => num(b.score) - num(a.score));\n  picked = picked.concat(older.slice(0, c.dailyMinJobs - picked.length));\n}\nconst items = picked.map((r) => ({ json: {\n  'السكور': r.score === '' ? '—' : Number(r.score), 'الوظيفة': r.title, 'الشركة': r.company, 'المصدر': r.source,\n  'المكان': r.location, 'السي في': r.cv, 'ليه مناسبة': r.why_ar, 'ناقصك إيه': r.missing_ar, 'تحذيرات': r.red_flags_ar,\n  'اللينك': r.url, 'إيميل التقديم': r.apply_email, 'الحالة': r.status,\n  'جديدة؟': fresh.includes(r) ? 'جديدة' : 'من قبل كده',\n} }));\nreturn items.length ? items : [{ json: { 'الوظيفة': 'مفيش وظايف جديدة النهارده' } }];\n"
+      },
+      "id": "16efd5bc-ae4b-49a5-8424-c34f2c9cf7b9",
+      "name": "📋 اختار وظايف الملخص",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "={{ 'Zyad_Jobs_' + $now.toFormat('yyyy-MM-dd') + '.xlsx' }}",
+          "sheetName": "Jobs",
+          "headerRow": true
+        }
+      },
+      "id": "c579c1ed-cf56-495c-882d-d0938082866c",
+      "name": "📎 اعمل ملف إكسل",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1240,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📧 بيكتب إيميل الملخص (HTML) ويرفق معاه ملف الإكسل\nconst c = $('⚙️ الإعدادات').first().json;\nconst rows = $('📋 اختار وظايف الملخص').all().map((i) => i.json);\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst all = $('📄 اقرا الشيت (ملخص)').all().map((i) => i.json).filter((r) => r.title && r.url);\nconst since = $now.minus({ hours: 24 });\nconst parseAt = (v) => {\n  if (typeof v === 'number') return DateTime.fromMillis(Math.round((v - 25569) * 864e5), { zone: 'utc' }).setZone($now.zoneName, { keepLocalTime: true });\n  const s = String(v || '').trim();\n  for (const f of ['yyyy-MM-dd HH:mm', 'yyyy-MM-dd HH:mm:ss', 'd/M/yyyy HH:mm:ss', 'M/d/yyyy HH:mm:ss']) {\n    const d = DateTime.fromFormat(s, f, { zone: $now.zoneName }); if (d.isValid) return d;\n  }\n  return DateTime.fromISO(s, { zone: $now.zoneName });\n};\nconst at = parseAt;\nconst first = {\n  _fresh: all.filter((r) => at(r.found_at).isValid && at(r.found_at) >= since).length,\n  _sent24: all.filter((r) => String(r.status || '').trim() === 'اتبعت' && at(r.applied_at).isValid && at(r.applied_at) >= since).length,\n  _total: all.length,\n};\nconst real = rows.filter((r) => r['اللينك']);\nconst color = (s) => (s === '—' ? '#888' : s >= 70 ? '#0a7a3d' : s >= 55 ? '#b26a00' : '#666');\nconst bySource = {};\nreal.forEach((r) => { bySource[r['المصدر']] = (bySource[r['المصدر']] || 0) + 1; });\n\nconst trs = real.map((r, i) => `<tr style=\"background:${i % 2 ? '#f7f8fa' : '#fff'}\">\n<td style=\"padding:8px;font-weight:bold;color:${color(r['السكور'])};font-size:16px\">${esc(r['السكور'])}</td>\n<td style=\"padding:8px\"><a href=\"${esc(r['اللينك'])}\" style=\"color:#1a4fd6;font-weight:bold;text-decoration:none\">${esc(r['الوظيفة'])}</a><br>\n<span style=\"color:#555\">${esc(r['الشركة'])} · ${esc(r['المصدر'])} · ${esc(r['المكان'])}</span>${r['جديدة؟'] === 'جديدة' ? '' : ' <span style=\"color:#999\">(من قبل كده)</span>'}</td>\n<td style=\"padding:8px\">${esc(r['ليه مناسبة'])}${r['ناقصك إيه'] ? `<br><span style=\"color:#8a5a00\">ناقصك: ${esc(r['ناقصك إيه'])}</span>` : ''}${r['تحذيرات'] ? `<br><span style=\"color:#b00020\">⚠️ ${esc(r['تحذيرات'])}</span>` : ''}</td>\n<td style=\"padding:8px\">${esc(r['السي في'])}${r['إيميل التقديم'] ? '<br>📧 تقديم بالإيميل' : ''}</td></tr>`).join('');\n\nconst html = `<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;font-size:14px;color:#222;max-width:900px\">\n<h2 style=\"margin:0 0 6px\">أهلاً يا زياد 👋</h2>\n<p style=\"margin:0 0 12px\">النهارده لقيت <b>${first._fresh || 0}</b> وظيفة جديدة مناسبة، واتبعت <b>${first._sent24 || 0}</b> طلب بالإيميل في آخر 24 ساعة. في الشيت كله ${first._total || 0} وظيفة.</p>\n${Object.keys(bySource).length ? `<p style=\"margin:0 0 12px;color:#555\">المصادر: ${Object.entries(bySource).map(([k, v]) => esc(k) + ' ' + v).join(' · ')}</p>` : ''}\n${real.length ? `<table cellspacing=\"0\" style=\"border-collapse:collapse;width:100%;border:1px solid #e3e5ea\">\n<tr style=\"background:#1f2a44;color:#fff\"><th style=\"padding:8px\">السكور</th><th style=\"padding:8px;text-align:right\">الوظيفة</th><th style=\"padding:8px;text-align:right\">ليه</th><th style=\"padding:8px\">السي في</th></tr>${trs}</table>` : '<p>مفيش وظايف جديدة النهارده، هدوّر تاني بكره.</p>'}\n<h3 style=\"margin:18px 0 6px\">تعمل إيه دلوقتي؟</h3>\n<ol style=\"margin:0;padding-right:18px;line-height:1.8\">\n<li>افتح <a href=\"${esc(c.sheetUrl)}\">الشيت</a>.</li>\n<li>الوظايف اللي فيها <b>📧 تقديم بالإيميل</b>: اكتب <b>نعم</b> في عمود <b>approve</b> وأنا هبعت الإيميل بالسي في المناسب خلال ساعة.</li>\n<li>الباقي: افتح اللينك وقدّم بنفسك، وانسخ الـ Cover Letter (أو العرض العربي لمستقل) من الشيت. بعد ما تقدّم غيّر <b>status</b> لـ <b>اتبعت</b>.</li>\n</ol>\n<p style=\"color:#888;font-size:12px;margin-top:16px\">الملف المرفق فيه نفس الوظايف. اتبعت أوتوماتيك من Zyad Job Hunter.</p></div>`;\n\nreturn [{ json: { subject: `🔎 ${first._fresh || 0} وظيفة جديدة — ${$now.toFormat('dd/MM')}`, html }, binary: $input.first().binary }];\n"
+      },
+      "id": "a3b35abe-5de6-4bed-912f-08e289daf040",
+      "name": "📧 اكتب الإيميل",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('⚙️ الإعدادات').first().json.myEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "data"
+              }
+            ]
+          }
+        }
+      },
+      "id": "8386b0cd-0aef-416a-b255-844f1a160377",
+      "name": "📨 ابعتلي الملخص",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1720,
+        260
+      ],
+      "webhookId": "4b2a3dc5-2dc2-429f-864f-8feed0e2b01f"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetUrl }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetName }}"
+        },
+        "options": {}
+      },
+      "id": "c59cf278-3ea8-4b75-87de-0e3fa25d98a6",
+      "name": "📄 اقرا الشيت (تقديم)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        760,
+        460
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ بيختار الوظايف اللي هتتقدّم بالإيميل: إنت كاتب «نعم» في approve\n//    (أو السكور أعلى من autoApplyMinScore لو مشغّل التقديم الأوتوماتيك)\nconst c = $('⚙️ الإعدادات').first().json;\nconst yes = (v) => /^(نعم|ايوه|أيوه|اه|آه|yes|y|ok|✔|✅)$/i.test(String(v || '').trim());\nconst out = [];\nfor (const it of $input.all()) {\n  const r = it.json;\n  if (!r.url || !r.apply_email) continue;\n  if (['اتبعت', 'sent', 'مرفوض', 'لأ', 'لا'].includes(String(r.status || '').trim())) continue;\n  const auto = c.autoApplyMinScore > 0 && Number(r.score) >= c.autoApplyMinScore && !r.red_flags_ar;\n  if (!yes(r.approve) && !auto) continue;\n  const cvId = c.cvDriveIds[r.cv] || c.cvDriveIds.ai_trainer;\n  if (!cvId || /PASTE/.test(cvId)) continue;\n  const body = (r.cover_letter && r.cover_letter.trim())\n    || `Dear Hiring Team,\\n\\nI would like to apply for the ${r.title} role. Please find my CV attached.\\n\\nBest regards,\\n${c.myName}\\n${c.myEmail} | ${c.myPhone}`;\n  out.push({ json: { url: r.url, to: r.apply_email.trim(), subject: r.email_subject || `Application for ${r.title} – ${c.myName}`,\n    body, cvFileId: cvId, title: r.title } });\n  if (out.length >= c.maxEmailsPerRun) break;\n}\nreturn out;\n"
+      },
+      "id": "a01b4926-943b-4453-bc29-984a999c5dcb",
+      "name": "✅ مين يتقدّم",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.cvFileId }}"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "id": "6c6484e2-6fc6-4a28-8d42-effa4bb4bcb8",
+      "name": "📥 هات السي في",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1240,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('✅ مين يتقدّم').item.json.to }}",
+        "subject": "={{ $('✅ مين يتقدّم').item.json.subject }}",
+        "emailType": "text",
+        "message": "={{ $('✅ مين يتقدّم').item.json.body }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "={{ $('⚙️ الإعدادات').first().json.myName }}",
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "data"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a2e85cfc-7504-43ff-a822-7d1d16060b25",
+      "name": "📤 ابعت الطلب",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1480,
+        460
+      ],
+      "webhookId": "acf89230-22de-4aba-93c0-71af675caf3d"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetUrl }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('⚙️ الإعدادات').first().json.sheetName }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $('✅ مين يتقدّم').item.json.url }}",
+            "status": "اتبعت",
+            "applied_at": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}"
+          },
+          "matchingColumns": [
+            "url"
+          ],
+          "schema": [
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "applied_at",
+              "displayName": "applied_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "40ca3b0a-3119-435c-a232-d536087d8831",
+      "name": "✔️ علّم إنه اتبعت",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1720,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Zyad Job Hunter 🔎\n**1)** عدّل **⚙️ الإعدادات** بس (لينك الشيت، مفتاح Gemini، IDs السي في).\n**2)** اختار حساب جوجل في نودز الشيت والجيميل والدرايف.\n**3)** دوس **Execute workflow** للتجربة، وبعدين **Active**.",
+        "width": 520,
+        "height": 200,
+        "color": 5
+      },
+      "id": "df75ed15-066e-4b48-b16a-bcd1945ebb09",
+      "name": "📝 9457",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### جمع وتقييم الوظايف (كل 3 ساعات من 7 الصبح لـ 10 بالليل)\nالمصادر ← تنضيف ← شيل المكرر ← الوصف الكامل ← الـ AI المقيّم ← الـ AI الكاتب (Cover Letter) ← الشيت",
+        "width": 1700,
+        "height": 100,
+        "color": 4
+      },
+      "id": "148b986f-f98a-45d5-b2c1-cd8045f617fe",
+      "name": "📝 ec64",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        740,
+        -330
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### الملخص اليومي — الساعة 9 بالليل\nغيّر الساعة من نود **⏰ الملخص اليومي**",
+        "width": 1000,
+        "height": 60,
+        "color": 6
+      },
+      "id": "6993006d-5f83-4b77-8087-138328692040",
+      "name": "📝 8f31",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        740,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### التقديم بالإيميل — كل ساعة\nبيبعت بس للوظايف اللي كتبت فيها **نعم** في عمود approve",
+        "width": 1000,
+        "height": 60,
+        "color": 3
+      },
+      "id": "31ed7eec-20bb-49ed-9a1e-b0c4696f281f",
+      "name": "📝 08e1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        740,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "▶️ تجربة يدوية": {
+      "main": [
+        [
+          {
+            "node": "⚙️ الإعدادات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ جمع الوظايف": {
+      "main": [
+        [
+          {
+            "node": "⚙️ الإعدادات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ الملخص اليومي": {
+      "main": [
+        [
+          {
+            "node": "⚙️ الإعدادات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ التقديم بالإيميل": {
+      "main": [
+        [
+          {
+            "node": "⚙️ الإعدادات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ الإعدادات": {
+      "main": [
+        [
+          {
+            "node": "🔀 إيه المطلوب؟",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 إيه المطلوب؟": {
+      "main": [
+        [
+          {
+            "node": "🔗 المصادر",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📄 اقرا الشيت (ملخص)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📄 اقرا الشيت (تقديم)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 المصادر": {
+      "main": [
+        [
+          {
+            "node": "🌐 هات الصفحات",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 هات الصفحات": {
+      "main": [
+        [
+          {
+            "node": "🧹 فك ونضّف",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧹 فك ونضّف": {
+      "main": [
+        [
+          {
+            "node": "🚫 شيل اللي اتشاف قبل كده",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚫 شيل اللي اتشاف قبل كده": {
+      "main": [
+        [
+          {
+            "node": "✂️ أحسن الوظايف",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✂️ أحسن الوظايف": {
+      "main": [
+        [
+          {
+            "node": "📄 هات تفاصيل LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📄 هات تفاصيل LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "🧩 ضيف الوصف",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧩 ضيف الوصف": {
+      "main": [
+        [
+          {
+            "node": "🤖 جهّز التقييم",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 جهّز التقييم": {
+      "main": [
+        [
+          {
+            "node": "🤖 قيّم بالـ AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 قيّم بالـ AI": {
+      "main": [
+        [
+          {
+            "node": "📊 اقرا التقييم",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 اقرا التقييم": {
+      "main": [
+        [
+          {
+            "node": "✍️ جهّز الجواب",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✍️ جهّز الجواب": {
+      "main": [
+        [
+          {
+            "node": "✍️ اكتب بالـ AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✍️ اكتب بالـ AI": {
+      "main": [
+        [
+          {
+            "node": "📝 جهّز الصف",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 جهّز الصف": {
+      "main": [
+        [
+          {
+            "node": "📄 ضيف للشيت",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📄 اقرا الشيت (ملخص)": {
+      "main": [
+        [
+          {
+            "node": "📋 اختار وظايف الملخص",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 اختار وظايف الملخص": {
+      "main": [
+        [
+          {
+            "node": "📎 اعمل ملف إكسل",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📎 اعمل ملف إكسل": {
+      "main": [
+        [
+          {
+            "node": "📧 اكتب الإيميل",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 اكتب الإيميل": {
+      "main": [
+        [
+          {
+            "node": "📨 ابعتلي الملخص",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📄 اقرا الشيت (تقديم)": {
+      "main": [
+        [
+          {
+            "node": "✅ مين يتقدّم",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ مين يتقدّم": {
+      "main": [
+        [
+          {
+            "node": "📥 هات السي في",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📥 هات السي في": {
+      "main": [
+        [
+          {
+            "node": "📤 ابعت الطلب",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📤 ابعت الطلب": {
+      "main": [
+        [
+          {
+            "node": "✔️ علّم إنه اتبعت",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Cairo",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
